@@ -1,0 +1,13 @@
+{
+  "url": "http://127.0.0.1:4413/",
+  "voice": "sage",
+  "steps": [
+    {"say": "Forkscope is for anyone who reads a statistical result and wonders how fragile it is. The claim here is that manual transmission cars get better fuel economy, tested on the thirty-two cars from the nineteen seventy-four Motor Trend road tests. Each dot is one complete analysis, from two thousand and forty-eight combinations of outlier rules, outcome transforms, standard errors and covariates. Only twenty percent of them support the claim.", "do": [{"wait": 500}]},
+    {"say": "The engine searches for the smallest set of choices that breaks the conclusion. One choice is enough. Adjusting for car weight takes the effect from seven point two miles per gallon to about zero, with a p value of point nine eight eight.", "do": [{"click": ".flip[data-id=\"o=none|t=none|s=classic|c=wt\"]"}]},
+    {"say": "Below are two paired notebooks. They are identical except for the one line that lists the covariates, and the red and green lines show exactly that difference.", "do": [{"scroll": "#diff"}]},
+    {"say": "Run both notebooks starts a fresh Python process for each. They use only the standard library and recompute the estimate independently of the JavaScript engine. Both results match.", "do": [{"click": "#run"}, {"eval": "new Promise(r=>{const t=setInterval(()=>{if(/match|MISMATCH|Error/i.test(document.querySelector('#runOut').textContent)){clearInterval(t);r()}},200)})"}]},
+    {"say": "Now Nemotron on Nebius Token Factory explains why. The model is Nemotron Three Super, called from the server. It says weight is the confounder, because manual cars in this data are much lighter. The engine then checks every number the model cited against its own computation, and marks each one correct or wrong.", "do": [{"click": "#why"}, {"eval": "new Promise(r=>{const t=setInterval(()=>{const o=document.querySelector('#whyOut').textContent;if(o&&!o.startsWith('Asking')){clearInterval(t);r()}},200)})"}, {"scroll": "#whyOut"}]},
+    {"say": "Nemotron also vets the choices. It judges which outlier rules, transforms and covariates a reasonable analyst could defend, and gives a reason for each. The engine ignores any choice it does not recognise, and reruns the whole multiverse on what the model kept.", "do": [{"scroll": 0}, {"click": "#vet"}, {"eval": "new Promise(r=>{const t=setInterval(()=>{if(document.querySelector('#vetOut .vet')){clearInterval(t);r()}},200)})"}, {"wait": 1500}]},
+    {"say": "Even after Nemotron removes the outlier rules, one covariate is still enough to reverse the claim. Forkscope shows that dependence, and keeps every specification as a downloadable file.", "do": [{"scroll": 0}, {"wait": 800}]}
+  ]
+}

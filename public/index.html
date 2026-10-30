@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>forkscope</title>
+<style>
+:root{--bg:#0d1117;--panel:#141a22;--line:#242d39;--ink:#e8ebf0;--mute:#96a0ae;--ok:#4cc3a0;--warn:#f2a93b;--bad:#f0705f;--accent:#7cb4ff;
+--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;--sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans)}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+header{display:flex;gap:20px;align-items:baseline;flex-wrap:wrap;padding:14px 24px;border-bottom:1px solid var(--line)}
+.brand{font:700 15px var(--mono);letter-spacing:.02em}
+.brand i{color:var(--warn);font-style:normal}
+#claim{flex:1;min-width:260px;font-size:15px;color:var(--ink)}
+#claim b{font-weight:600}
+.pill{font:12px var(--mono);color:var(--mute);border:1px solid var(--line);padding:3px 10px;border-radius:99px}
+.pill.on{color:var(--ok);border-color:#2a5d4f}
+main{padding:18px 24px 40px;max-width:1500px;margin:auto}
+.lede{display:flex;gap:28px;flex-wrap:wrap;align-items:baseline;margin-bottom:10px}
+.big{font:600 34px/1.1 var(--mono)}
+.big small{font:14px var(--sans);color:var(--mute);margin-left:8px;font-weight:400}
+.key{display:flex;gap:16px;font:12px var(--mono);color:var(--mute);flex-wrap:wrap}
+.key span::before{content:"";display:inline-block;width:9px;height:9px;margin-right:6px;background:var(--c);border-radius:2px}
+#chartwrap{position:relative}
+canvas{display:block;width:100%}
+#curve{height:300px;cursor:crosshair}
+#matrix{height:228px;cursor:crosshair}
+#tip{position:absolute;pointer-events:none;background:#000d;border:1px solid var(--line);padding:6px 9px;font:12px var(--mono);border-radius:4px;display:none;white-space:nowrap;z-index:3}
+.axis{font:12px var(--mono);color:var(--mute);margin:2px 0 18px}
+.cols{display:grid;grid-template-columns:minmax(280px,360px) 1fr;gap:36px;margin-top:8px}
+@media(max-width:900px){.cols{grid-template-columns:1fr;gap:24px}header,main{padding-left:16px;padding-right:16px}.big{font-size:26px}}
+h2{font:600 12px var(--mono);color:var(--mute);margin:0 0 8px;text-transform:none;letter-spacing:.04em}
+.flip{display:block;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);padding:9px 2px;font:13px var(--mono);color:var(--ink)}
+.flip:hover,.flip[aria-pressed=true]{background:var(--panel)}
+.flip .p{color:var(--mute)}
+.flip em{font-style:normal;color:var(--warn)}
+.btn{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:7px 12px;font-size:13px}
+.btn:hover:not(:disabled){border-color:var(--accent)}
+.btn:disabled{opacity:.55;cursor:default}
+.btn.main{background:#1c3a63;border-color:#2f5d99}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:600px){.pair{grid-template-columns:1fr}}
+.res{border-left:3px solid var(--c,var(--line));padding-left:12px}
+.res .v{font:600 18px var(--mono)}
+.res .n{font:12px var(--mono);color:var(--mute)}
+.diff{font:12px/1.6 var(--mono);margin:14px 0;overflow-x:auto}
+.diff div{white-space:pre;padding:0 8px}
+.diff .a{background:#3a1a1a}.diff .b{background:#16342b}
+.diff .h{color:var(--mute)}
+.exp{border-top:1px solid var(--line);margin-top:14px;padding-top:12px;max-width:72ch}
+.chk{font:12px var(--mono);color:var(--mute)}
+.chk .ok{color:var(--ok)}.chk .no{color:var(--bad)}
+.note{color:var(--mute);font-size:13px;max-width:70ch}
+.err{color:var(--bad);font-size:13px}
+.vet li{font-size:13px;margin:3px 0}.vet{padding-left:18px;margin:6px 0}
+.vet .x{color:var(--bad)}.vet .y{color:var(--ok)}
+a{color:var(--accent)}
+@media(prefers-reduced-motion:no-preference){.flip{transition:background .15s}}
+</style>
+</head>
+<body>
+<header>
+  <span class="brand">fork<i>/</i>scope</span>
+  <div id="claim">Claim under test: <b id="claimText">…</b></div>
+  <span class="pill" id="nem">Nemotron: checking</span>
+</header>
+<main>
+  <div class="lede">
+    <div class="big" id="headline" aria-live="polite">Running every defensible analysis…</div>
+    <div class="key"><span style="--c:var(--ok)">supports claim (p&lt;.05)</span><span style="--c:var(--warn)">not supported</span><span style="--c:var(--bad)">reversed</span></div>
+  </div>
+  <div id="chartwrap">
+    <canvas id="curve" role="img" aria-label="Specification curve: every analysis sorted by how strongly it supports the claim"></canvas>
+    <canvas id="matrix" role="img" aria-label="Which analysis choices each specification uses"></canvas>
+    <div id="tip"></div>
+  </div>
+  <div class="axis">Each column is one complete analysis. Top: signed t-statistic for manual vs automatic, sorted. Bottom: the choices that analysis made. Click any column to compare it with the baseline.</div>
+
+  <div class="cols">
+    <section aria-labelledby="h-flip">
+      <h2 id="h-flip">SMALLEST CHANGES THAT BREAK THE CLAIM</h2>
+      <div id="flips"></div>
+      <div class="row">
+        <button class="btn" id="vet">Ask Nemotron which choices are defensible</button>
+        <button class="btn" id="reset" hidden>Use all choices</button>
+      </div>
+      <div id="vetOut" class="note"></div>
+      <p class="note"><a href="/api/specs.csv">Download all <span id="nspec"></span> specifications (CSV)</a></p>
+    </section>
+
+    <section aria-labelledby="h-cmp">
+      <h2 id="h-cmp">PAIRED NOTEBOOKS</h2>
+      <div class="pair">
+        <div class="res" id="resA"></div>
+        <div class="res" id="resB"></div>
+      </div>
+      <div class="diff" id="diff" aria-label="Lines that differ between notebook A and B"></div>
+      <div class="row">
+        <button class="btn main" id="run">Run both notebooks (Python)</button>
+        <button class="btn" id="why">Ask Nemotron why it changes</button>
+        <a class="btn" id="dlA" download="notebook-A.ipynb" style="text-decoration:none;color:inherit">Download A.ipynb</a>
+        <a class="btn" id="dlB" download="notebook-B.ipynb" style="text-decoration:none;color:inherit">Download B.ipynb</a>
+      </div>
+      <div id="runOut" class="chk"></div>
+      <div id="whyOut" class="exp" hidden></div>
+    </section>
+  </div>
+</main>
+<script>
+const $ = (s) => document.querySelector(s);
+const COLOR = { supported: "#4cc3a0", unsupported: "#f2a93b", reversed: "#f0705f" };
+const BASE = "o=none|t=none|s=classic|c=-";
+let S = null, specs = [], order = [], sel = null, status = null, allow = null, hover = -1;
+const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+const fmtP = (p) => (p < 0.001 ? "<0.001" : p.toFixed(3));
+const parse = (id) => { const m = /^o=(\w+)\|t=(\w+)\|s=(\w+)\|c=(.*)$/.exec(id); return { o: m[1], t: m[2], s: m[3], c: m[4] === "-" ? [] : m[4].split("+") }; };
+const human = (id) => { const x = parse(id), parts = []; if (x.c.length) parts.push("adjust for " + x.c.join(" + ")); if (x.o !== "none") parts.push(status.vocab.outliers[x.o]); if (x.t !== "none") parts.push("outcome = " + status.vocab.transforms[x.t]); if (x.s !== "classic") parts.push(status.vocab.ses[x.s]); return parts.join("; ") || "baseline: raw difference in means"; };
+async function api(path, body) { const r = await fetch(path, body ? { method: "POST", body: JSON.stringify(body) } : {}); const j = await r.json(); if (!r.ok) throw new Error(j.error || r.status); return j; }
+
+async function load() {
+  status = await api("/api/status");
+  $("#claimText").textContent = status.conclusion;
+  const n = $("#nem"); n.textContent = status.nemotron ? "Nemotron: " + status.model.split("/")[1] : "Nemotron: off (no NEBIUS_API_KEY)"; n.classList.toggle("on", status.nemotron);
+  $("#vet").disabled = $("#why").disabled = !status.nemotron;
+  await refresh();
+}
+async function refresh() {
+  S = await api("/api/multiverse", allow ? { allow } : {});
+  specs = S.specs; order = specs.map((_, i) => i).sort((a, b) => specs[a].favorT - specs[b].favorT);
+  $("#nspec").textContent = S.total;
+  const pct = Math.round((100 * S.supported) / S.total);
+  $("#headline").innerHTML = S.minSize ? `${S.minSize} choice${S.minSize > 1 ? "s" : ""} <small>is enough to break the claim. Only ${S.supported} of ${S.total} analyses (${pct}%) support it.</small>` : `No reversal found <small>${S.supported} of ${S.total} analyses support the claim.</small>`;
+  const f = $("#flips"); f.innerHTML = "";
+  const list = S.minSize === 1 ? S.singles.filter((r) => r.verdict !== "supported") : S.minimal.slice(0, 12);
+  if (!list.length) f.innerHTML = '<p class="note">Every one-choice change still supports the claim.</p>';
+  list.forEach((r) => { const b = document.createElement("button"); b.className = "flip"; b.setAttribute("aria-pressed", "false"); b.dataset.id = r.id;
+    b.innerHTML = `<em>${r.verdict === "reversed" ? "reverses" : "breaks"}</em> ${esc(human(r.id))}<br><span class="p">effect ${r.coef.toFixed(2)}, p=${fmtP(r.p)}, n=${r.n}</span>`;
+    b.onclick = () => select(r.id); f.appendChild(b); });
+  draw(); select(sel && specs.find((s) => s.id === sel) ? sel : (list[0] || specs.find((s) => s.id !== BASE) || specs[0]).id);
+}
+function geometry() {
+  const wrap = $("#chartwrap"), W = wrap.clientWidth, L = W < 600 ? 0 : 150;
+  return { W, L, plot: W - L - 4 };
+}
+function setup(c, h) { const dpr = devicePixelRatio || 1, g = geometry(); c.width = g.W * dpr; c.height = h * dpr; const x = c.getContext("2d"); x.scale(dpr, dpr); x.clearRect(0, 0, g.W, h); return [x, g]; }
+const ROWS = () => {
+  const r = [];
+  Object.keys(status.vocab.outliers).filter((k) => k !== "none").forEach((k) => r.push(["drop: " + k, (p) => p.o === k]));
+  Object.keys(status.vocab.transforms).filter((k) => k !== "none").forEach((k) => r.push(["outcome: " + k, (p) => p.t === k]));
+  r.push(["robust SE (HC3)", (p) => p.s === "hc3"]);
+  Object.keys(status.vocab.covariates).forEach((k) => r.push(["adjust: " + k, (p) => p.c.includes(k)]));
+  return r;
+};
+let parsed = [];
+function draw() {
+  parsed = specs.map((s) => parse(s.id));
+  const H1 = 300, H2 = 228;
+  const [x, g] = setup($("#curve"), H1);
+  const ys = specs.map((s) => s.favorT), lo = Math.min(...ys, -3), hi = Math.max(...ys, 5), top = 14, bot = H1 - 22;
+  const Y = (v) => top + (bot - top) * (1 - (v - lo) / (hi - lo)), colW = g.plot / specs.length;
+  g.Y = Y; g.colW = colW;
+  x.font = "12px ui-monospace,Menlo,monospace"; x.fillStyle = "#96a0ae"; x.strokeStyle = "#242d39";
+  [-4, -2, 0, 2, 4, 6, 8].filter((v) => v >= lo && v <= hi).forEach((v) => { x.beginPath(); x.moveTo(g.L, Y(v)); x.lineTo(g.W, Y(v)); x.stroke(); if (g.L) x.fillText("t = " + v, 100, Y(v) + 4); });
+  x.setLineDash([4, 4]); x.strokeStyle = "#f2a93b88"; [2.04, -2.04].forEach((v) => { x.beginPath(); x.moveTo(g.L, Y(v)); x.lineTo(g.W, Y(v)); x.stroke(); }); x.setLineDash([]);
+  order.forEach((i, k) => { x.fillStyle = COLOR[specs[i].verdict]; x.fillRect(g.L + k * colW, Y(specs[i].favorT) - 1.5, Math.max(colW, 1.4), 3); });
+  const [m, _] = setup($("#matrix"), H2); const rows = ROWS(), rh = (H2 - 8) / rows.length;
+  m.font = "12px ui-monospace,Menlo,monospace";
+  rows.forEach(([name, f], r) => { if (g.L) { m.fillStyle = "#96a0ae"; m.fillText(name, 0, 8 + r * rh + rh * 0.75); }
+    order.forEach((i, k) => { if (f(parsed[i])) { m.fillStyle = "#5a6577"; m.fillRect(g.L + k * colW, 8 + r * rh + 1, Math.max(colW, 1.2), rh - 3); } }); });
+  g.rh = rh; geo = g; overlay();
+}
+let geo = null;
+function overlay() {
+  const old = document.getElementById("ov"); if (old) old.remove();
+  if (!geo) return; const wrap = $("#chartwrap");
+  const mark = (id, color, w) => { const k = order.findIndex((i) => specs[i].id === id); if (k < 0) return ""; const xx = geo.L + k * geo.colW + geo.colW / 2; return `<line x1="${xx}" x2="${xx}" y1="0" y2="540" stroke="${color}" stroke-width="${w}"/>`; };
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.id = "ov"; svg.setAttribute("style", "position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none");
+  svg.innerHTML = mark(BASE, "#7cb4ff", 2) + (sel ? mark(sel, "#ffffff", 2) : "");
+  wrap.appendChild(svg);
+}
+function pickAt(e, c) { const r = c.getBoundingClientRect(), k = Math.floor((e.clientX - r.left - geo.L) / geo.colW); return k >= 0 && k < order.length ? order[k] : -1; }
+["#curve", "#matrix"].forEach((s) => {
+  const c = $(s);
+  c.addEventListener("click", (e) => { const i = pickAt(e, c); if (i >= 0) select(specs[i].id); });
+  c.addEventListener("mousemove", (e) => { const i = pickAt(e, c), t = $("#tip"); if (i < 0) { t.style.display = "none"; return; } const sp = specs[i], r = $("#chartwrap").getBoundingClientRect();
+    t.style.display = "block"; t.style.left = Math.min(e.clientX - r.left + 12, r.width - 260) + "px"; t.style.top = e.clientY - r.top + 12 + "px"; t.textContent = `${human(sp.id)} | p=${fmtP(sp.p)} | ${sp.verdict}`; });
+  c.addEventListener("mouseleave", () => ($("#tip").style.display = "none"));
+});
+addEventListener("resize", () => specs.length && draw());
+
+function resBlock(el, label, r) {
+  el.style.setProperty("--c", COLOR[r.verdict]);
+  el.innerHTML = `<div class="n">${label}</div><div class="v">${r.verdict === "supported" ? "Supports claim" : r.verdict === "reversed" ? "Reversed" : "Not supported"}</div><div class="n">effect ${r.coef.toFixed(3)} (se ${r.se.toFixed(3)})<br>t = ${r.t.toFixed(2)}, p = ${fmtP(r.p)}, n = ${r.n}</div><div class="n">${esc(human(r.id))}</div>`;
+}
+async function select(id) {
+  sel = id; overlay();
+  document.querySelectorAll(".flip").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.id === id)));
+  $("#runOut").textContent = ""; $("#whyOut").hidden = true;
+  const q = "?a=" + encodeURIComponent(BASE) + "&b=" + encodeURIComponent(id);
+  const p = await api("/api/pair" + q);
+  resBlock($("#resA"), "NOTEBOOK A (baseline)", p.a); resBlock($("#resB"), "NOTEBOOK B", p.b);
+  const d = $("#diff"); d.innerHTML = '<div class="h">Lines that differ between the two notebooks:</div>' + p.diff.map((x) => `<div class="a">- A  ${esc(x.a)}</div><div class="b">+ B  ${esc(x.b)}</div>`).join("");
+  $("#dlA").href = "/api/pair" + q + "&download=a"; $("#dlB").href = "/api/pair" + q + "&download=b";
+}
+$("#run").onclick = async () => {
+  const o = $("#runOut"); o.textContent = "Running both notebooks in a fresh Python process…"; $("#run").disabled = true;
+  try { const r = await api("/api/verify", { a: BASE, b: sel });
+    const line = (k, v) => v.ran ? `${k}: python p=${v.python.p.toPrecision(6)} coef=${v.python.coef.toFixed(4)} n=${v.python.n} | engine p=${v.engine.p.toPrecision(6)} | <span class="${v.match ? "ok" : "no"}">${v.match ? "match" : "MISMATCH"}</span>` : `${k}: <span class="no">${esc(v.error)}</span>`;
+    o.innerHTML = line("A", r.a) + "<br>" + line("B", r.b); }
+  catch (e) { o.innerHTML = `<span class="no">${esc(e.message)}</span>`; }
+  $("#run").disabled = false;
+};
+$("#why").onclick = async () => {
+  const o = $("#whyOut"); o.hidden = false; o.textContent = "Asking Nemotron…"; $("#why").disabled = true;
+  try { const r = await api("/api/explain", { a: BASE, b: sel });
+    const ok = r.checks.filter((c) => c.ok).length;
+    o.innerHTML = `<p>${esc(r.explanation)}</p><p class="note">Caveat from the model: ${esc(r.caveat)}</p><div class="chk">Engine check of the ${r.checks.length} numbers the model cited: <span class="${ok === r.checks.length ? "ok" : "no"}">${ok} correct</span><br>` + r.checks.map((c) => `<span class="${c.ok ? "ok" : "no"}">${c.ok ? "ok" : "wrong"}</span> ${esc(c.fact)} claimed ${esc(c.claimed)} actual ${c.actual === null ? "n/a" : Number(c.actual).toPrecision(4)}`).join("<br>") + `</div><div class="chk">model: ${esc(r.model)}</div>`; }
+  catch (e) { o.innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+  $("#why").disabled = !status.nemotron;
+};
+$("#vet").onclick = async () => {
+  const o = $("#vetOut"); o.textContent = "Asking Nemotron to vet every choice…"; $("#vet").disabled = true;
+  try { const r = await api("/api/propose", {}); allow = r.allow;
+    o.innerHTML = `<ul class="vet">` + Object.entries(r.reasons).map(([k, v]) => `<li><span class="${v.defensible ? "y" : "x"}">${v.defensible ? "keep" : "drop"}</span> ${esc(k.split(".")[1])}: ${esc(v.reason)}</li>`).join("") + `</ul><div class="chk">${r.rejectedIds.length ? "Engine ignored unknown ids: " + esc(r.rejectedIds.join(", ")) : "All ids the model used exist in the engine."} Showing only the choices Nemotron kept.</div>`;
+    $("#reset").hidden = false; await refresh(); }
+  catch (e) { o.innerHTML = `<span class="err">${esc(e.message)}</span>`; }
+  $("#vet").disabled = !status.nemotron;
+};
+$("#reset").onclick = async () => { allow = null; $("#reset").hidden = true; $("#vetOut").textContent = ""; await refresh(); };
+load().catch((e) => ($("#headline").textContent = "Error: " + e.message));
+</script>
+</body>
+</html>

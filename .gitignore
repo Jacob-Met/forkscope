@@ -1,0 +1,4 @@
+demo/*.mp4
+node_modules/
+.env
+*.log
